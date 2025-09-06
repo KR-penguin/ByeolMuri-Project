@@ -1,6 +1,9 @@
-# pygame을 이용한 간단한 대화창 예제
+
+# pygame을 이용한 간단한 대화창 예제 (dialogs.json에서 대사 불러오기)
 import pygame
 import sys
+import json
+import os
 
 pygame.init()
 
@@ -9,27 +12,32 @@ WIDTH, HEIGHT = 1280, 720
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption('별무리')
 
-# 폰트 설정
+# 폰트 설정(맑은 고딕, 글자 크기 24)
 FONT = pygame.font.SysFont('malgungothic', 24)
 
-# 색상
+# 색상(색상 정의)
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GRAY = (200, 200, 200)
 
+# 대화창 상태
+dialog_open = False  # 대화창 열림 여부
+current_idx = 0  # 현재 대사 인덱스
 
-# NPC 대사 리스트
-npc_dialogues = [
-	"안녕하세요, 모험가님!",
-	"이 마을에 온 것을 환영합니다.",
-	"여기서 여러가지 퀘스트를 받을 수 있어요.",
-	"궁금한 점이 있으면 언제든 물어보세요!",
-	"행운을 빕니다!",
-	"이건 32자 이상에 대한 테스트 문장입니다. 자동 줄바꿈이 잘 되는지 확인하기 위한 문장입니다. 길게 작성해 보았습니다."
-]
-current_idx = 0
+# 대사 파일 경로
+DIALOG_PATH = os.path.join(os.path.dirname(__file__), "dialogs.json") 
+
+# 대사 불러오기
+def load_dialogs():
+	if not os.path.exists(DIALOG_PATH):
+		return ["대사 파일이 없습니다."]
+	with open(DIALOG_PATH, 'r', encoding='utf-8') as f:
+		return json.load(f)
+
+npc_dialogues = load_dialogs()
 
 clock = pygame.time.Clock()
+
 
 
 def draw_npc_dialogue():
@@ -53,9 +61,10 @@ def draw_npc_dialogue():
 			screen.blit(msg_surface, (70, y))
 			y += 36
 	else:
-		msg_surface = FONT.render("대화가 끝났습니다. ESC로 종료하세요.", True, BLACK)
+		msg_surface = FONT.render("대화가 끝났습니다. ESC로 창이 닫힙니다.", True, BLACK)
 		screen.blit(msg_surface, (70, HEIGHT - 140))
 	pygame.display.flip()
+
 
 while True:
 	for event in pygame.event.get():
@@ -63,17 +72,34 @@ while True:
 			pygame.quit()
 			sys.exit()
 		elif event.type == pygame.KEYDOWN:
-			# 오른쪽 화살표 또는 스페이스: 다음 대사
-			if event.key == pygame.K_RIGHT or event.key == pygame.K_SPACE:
-				if current_idx < len(npc_dialogues):
-					current_idx += 1
-			# 왼쪽 화살표: 이전 대사
-			elif event.key == pygame.K_LEFT:
-				if current_idx > 0:
-					current_idx -= 1
-			# ESC: 종료
+			# 스페이스바로 대화창 열기/닫기
+			if event.key == pygame.K_SPACE:
+				if not dialog_open:
+					dialog_open = True
+					current_idx = 0
+				elif dialog_open:
+					# 대화 중이면 다음 대사
+					if current_idx < len(npc_dialogues):
+						current_idx += 1
+					# 마지막 대사 이후에는 창 닫기
+					if current_idx >= len(npc_dialogues):
+						dialog_open = False
+			# ESC로 프로그램 종료
 			elif event.key == pygame.K_ESCAPE:
 				pygame.quit()
 				sys.exit()
-	draw_npc_dialogue()
+			# 왼쪽/오른쪽 화살표로 대사 이동 (대화창이 열려 있을 때만)
+			elif dialog_open and event.key == pygame.K_RIGHT:
+				if current_idx < len(npc_dialogues) - 1:
+					current_idx += 1
+			elif dialog_open and event.key == pygame.K_LEFT:
+				if current_idx > 0:
+					current_idx -= 1
+	if dialog_open:
+		draw_npc_dialogue()
+	else:
+		screen.fill(WHITE)
+		msg_surface = FONT.render("스페이스바를 눌러 대화창을 여세요.", True, BLACK)
+		screen.blit(msg_surface, (WIDTH//2 - 200, HEIGHT//2))
+		pygame.display.flip()
 	clock.tick(30)
