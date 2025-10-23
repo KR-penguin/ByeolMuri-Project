@@ -13,7 +13,7 @@ import pygame
 import math
 
 # 상수
-RADIUS = 18  # 공통 반경(충돌/선택)
+RADIUS = 10  # 공통 반경(충돌/선택) - 그리드 크기에 맞춰 조정
 
 COLORS = {
     "white": (255, 255, 255),
@@ -42,9 +42,23 @@ class Button:
 
 
 class Emitter:
-    """빛 발사 장치 (흰색 빛)"""
+    """빛 발사 장치 (흰색 빛) - 상하좌우 4방향만 가능 (0, 90, 180, 270도)"""
     def __init__(self, x, y, color='white', angle=0):
-        self.x, self.y, self.color, self.angle = x, y, color, angle
+        self.x, self.y, self.color = x, y, color
+        self.angle = self.snap_angle(angle)
+    
+    def snap_angle(self, angle):
+        """각도를 상하좌우 4방향 중 가장 가까운 각도로 스냅 (0, 90, 180, 270)"""
+        angle = angle % 360
+        directions = [0, 90, 180, 270]
+        closest = min(directions, key=lambda d: min(abs(angle - d), abs(angle - d + 360), abs(angle - d - 360)))
+        return closest
+    
+    def rotate(self):
+        """다음 방향으로 회전 (시계방향 90도)"""
+        angles = [0, 90, 180, 270]
+        current_idx = angles.index(self.angle)
+        self.angle = angles[(current_idx + 1) % 4]
     
     def draw(self, surf):
         pygame.draw.circle(surf, COLORS[self.color], (int(self.x), int(self.y)), RADIUS, 2)
@@ -85,12 +99,28 @@ class ColorTarget:
 
 
 class Mirror:
-    """거울 (반사)"""
-    def __init__(self, x, y, angle=0):
-        self.x, self.y, self.angle = x, y, angle
+    """거울 (반사) - 대각선 4방향만 가능 (45, 135, 225, 315도)"""
+    def __init__(self, x, y, angle=45):
+        self.x, self.y = x, y
+        self.angle = self.snap_angle(angle)
+    
+    def snap_angle(self, angle):
+        """각도를 대각선 4방향 중 가장 가까운 각도로 스냅 (45, 135, 225, 315)"""
+        # 정규화
+        angle = angle % 360
+        # 4방향 중 가장 가까운 각도
+        directions = [45, 135, 225, 315]
+        closest = min(directions, key=lambda d: min(abs(angle - d), abs(angle - d + 360), abs(angle - d - 360)))
+        return closest
+    
+    def rotate(self):
+        """다음 대각선 방향으로 회전 (시계방향 90도)"""
+        angles = [45, 135, 225, 315]
+        current_idx = angles.index(self.angle)
+        self.angle = angles[(current_idx + 1) % 4]
     
     def draw(self, surf):
-        length = 36
+        length = 20  # 거울 길이 (그리드 크기에 맞춤)
         dx = math.cos(math.radians(self.angle)) * length
         dy = math.sin(math.radians(self.angle)) * length
         pygame.draw.line(surf, (200, 200, 200), (self.x - dx, self.y - dy), (self.x + dx, self.y + dy), 3)
@@ -98,15 +128,9 @@ class Mirror:
 
 
 class Lens:
-    """렌즈 (굴절) - 맵의 굴절률 설정을 따름"""
-    def __init__(self, x, y, angle=0, refract_index=None):
+    """렌즈 - 빛을 45도 꺾음"""
+    def __init__(self, x, y, angle=0):
         self.x, self.y, self.angle = x, y, angle
-        # refract_index가 None이면 맵 설정을 따르도록 함
-        self.refract_index = refract_index
-    
-    def get_refract_index(self, map_refract_index):
-        """렌즈의 굴절률 반환 (None이면 맵 설정 사용)"""
-        return self.refract_index if self.refract_index is not None else map_refract_index
     
     def draw(self, surf):
         pygame.draw.circle(surf, (100, 180, 255), (int(self.x), int(self.y)), RADIUS, 0)
@@ -139,3 +163,31 @@ class Blackhole:
     def draw(self, surf):
         pygame.draw.circle(surf, (0, 0, 0), (int(self.x), int(self.y)), RADIUS, 0)
         pygame.draw.circle(surf, (90, 90, 90), (int(self.x), int(self.y)), RADIUS, 2)
+
+
+class Portal:
+    """포탈 - 입구(A)와 출구(B)"""
+    def __init__(self, x, y, portal_type='A'):
+        self.x, self.y = x, y
+        self.portal_type = portal_type  # 'A' (입구) 또는 'B' (출구)
+    
+    def draw(self, surf):
+        if self.portal_type == 'A':
+            # 입구 포탈 - 파란색
+            pygame.draw.circle(surf, (0, 150, 255), (int(self.x), int(self.y)), RADIUS, 0)
+            pygame.draw.circle(surf, (0, 100, 200), (int(self.x), int(self.y)), RADIUS, 3)
+            # A 텍스트
+            font = pygame.font.SysFont("Arial", 16, bold=True)
+            text = font.render("A", True, (255, 255, 255))
+            text_rect = text.get_rect(center=(int(self.x), int(self.y)))
+            surf.blit(text, text_rect)
+        else:  # 'B'
+            # 출구 포탈 - 주황색
+            pygame.draw.circle(surf, (255, 150, 0), (int(self.x), int(self.y)), RADIUS, 0)
+            pygame.draw.circle(surf, (200, 100, 0), (int(self.x), int(self.y)), RADIUS, 3)
+            # B 텍스트
+            font = pygame.font.SysFont("Arial", 16, bold=True)
+            text = font.render("B", True, (255, 255, 255))
+            text_rect = text.get_rect(center=(int(self.x), int(self.y)))
+            surf.blit(text, text_rect)
+
