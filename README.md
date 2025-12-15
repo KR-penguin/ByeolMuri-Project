@@ -158,6 +158,317 @@ $$\left|\frac{n_1}{n_2} \sin(\theta_1)\right| > 1$$
 
 ---
 
+## 🎨 코딩 컨벤션
+
+### 📋 명명 규칙 (Naming Convention)
+
+#### 변수 및 함수
+- **snake_case** (소문자 + 언더스코어) 사용
+```python
+game_started = False
+object_mode = None
+current_level = "level_0.json"
+
+def load_level(filename):
+def snap_to_grid(x, y):
+def check_game_complete():
+```
+
+#### 상수
+- **UPPER_CASE** (대문자 + 언더스코어) 사용
+```python
+WIDTH, HEIGHT = 1280, 720
+FPS = 60
+GRID_SIZE = 25
+MAX_STEPS = 20000
+RADIUS = 18
+N_AIR = 1.0
+```
+
+#### 클래스
+- **PascalCase** (각 단어 첫 글자 대문자) 사용
+```python
+class Button:
+class MapSelector:
+class Emitter:
+class Mirror:
+class Blackhole:
+```
+
+---
+
+### 📐 코드 구조
+
+#### 파일 최상단 구조
+```python
+# 1. 표준 라이브러리 임포트
+import pygame
+import math
+import json
+
+# 2. 로컬 모듈 임포트
+from objects import Button, Emitter, Target
+from utils import near, angle_wrap, advance
+
+# 3. 상수 정의
+WIDTH, HEIGHT = 1280, 720
+FPS = 60
+
+# 4. pygame 초기화
+pygame.init()
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+```
+
+#### 클래스 구조
+```python
+class ClassName:
+    """클래스 설명 (docstring)"""
+    
+    def __init__(self, x, y):
+        """생성자"""
+        self.x = x
+        self.y = y
+    
+    def public_method(self):
+        """공개 메서드"""
+        pass
+    
+    def _private_method(self):
+        """내부 메서드 (언더스코어 접두사)"""
+        pass
+```
+
+---
+
+### 💬 주석 및 문서화
+
+#### Docstring
+```python
+def refract_angle(inc_angle_deg, normal_deg, n1, n2):
+    """
+    스넬의 법칙을 이용한 굴절각 계산
+    
+    Parameters:
+        inc_angle_deg: 입사광선의 진행 방향 (절대각, degree)
+        normal_deg: 경계면의 법선 방향 (외향, degree)
+        n1: 입사 매질의 굴절률
+        n2: 굴절 매질의 굴절률
+    
+    Returns:
+        (new_angle, is_total_reflection): 
+            - new_angle: 굴절(또는 반사) 후 진행 방향 (degree)
+            - is_total_reflection: 전반사 발생 여부 (bool)
+    """
+```
+
+#### 인라인 주석
+```python
+# --- 기본 설정 ---
+WIDTH, HEIGHT = 1280, 720
+
+# --- 버튼들 ---
+btn_start = Button(20, 20, 120, 40, "게임 시작")
+
+# 거울 반사
+for m in mirrors:
+    if near(x, y, m.x, m.y):
+        angle = angle_wrap(2 * m.angle - angle)
+```
+
+---
+
+### 📏 들여쓰기 및 공백
+
+- **들여쓰기**: 스페이스 4개 사용
+- **함수/클래스 간격**: 2줄 띄우기
+- **클래스 내 메서드 간격**: 1줄 띄우기
+- **연산자 공백**: 연산자 양쪽에 공백 추가
+
+```python
+# 올바른 예
+x = 10
+y = x + 5
+result = (a * b) / (c + d)
+
+# 잘못된 예
+x=10
+y = x+5
+```
+
+---
+
+### 🔄 조건문 및 반복문
+
+#### 조건문
+```python
+# 명확한 변수명 사용
+if game_started:
+    simulate_light(screen)
+
+if len(targets) == 0:
+    return False
+```
+
+#### 반복문
+```python
+# enumerate 사용 (인덱스 필요 시)
+for i, line in enumerate(info):
+    screen.blit(FONT.render(line, True, (180,180,180)), (20, 200 + i*22))
+
+# 일반적인 경우
+for target in targets:
+    target.draw(screen)
+```
+
+---
+
+### 📁 JSON 파일 구조
+
+#### 레벨 파일 형식
+```json
+{
+  "map_index": 0,
+  "emitters": [
+    {"x": 93, "y": 343, "color": "white", "angle": 0}
+  ],
+  "targets": [
+    {"x": 614, "y": 486, "color": "white"}
+  ],
+  "mirrors": [
+    {"x": 349, "y": 342, "angle": 30}
+  ],
+  "lenses": [],
+  "portals_a": [],
+  "portals_b": [],
+  "blackholes": []
+}
+```
+
+#### 저장/불러오기
+```python
+# 저장: 들여쓰기 2칸, 한글 유지
+with open(filename, "w", encoding="utf-8") as f:
+    json.dump(level_data, f, ensure_ascii=False, indent=2)
+
+# 불러오기: UTF-8 인코딩
+with open(filename, "r", encoding="utf-8") as f:
+    data = json.load(f)
+```
+
+---
+
+### ⚠️ 에러 처리
+
+```python
+try:
+    with open(filename, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    print(f"레벨 로드 완료: {filename}")
+except FileNotFoundError:
+    print(f"파일을 찾을 수 없습니다: {filename}")
+except Exception as e:
+    print(f"레벨 로드 실패: {e}")
+    traceback.print_exc()
+```
+
+---
+
+### 🎮 pygame 관련 규칙
+
+#### 화면 좌표
+```python
+# (x, y): 좌상단이 원점 (0, 0)
+# int() 캐스팅: 그리기 전에 정수 변환
+pygame.draw.circle(surface, color, (int(x), int(y)), radius)
+```
+
+#### 색상 정의
+```python
+# 튜플 형태: (R, G, B)
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GRAY = (100, 100, 100)
+
+# 딕셔너리
+COLORS = {
+    "white": (255, 255, 255),
+    "red":   (255, 0, 0),
+    "green": (0, 255, 0),
+    "blue":  (0, 0, 255),
+}
+```
+
+#### 이벤트 처리
+```python
+for event in pygame.event.get():
+    if event.type == pygame.QUIT:
+        running = False
+    elif event.type == pygame.KEYDOWN:
+        if event.key == pygame.K_ESCAPE:
+            running = False
+    elif event.type == pygame.MOUSEBUTTONDOWN:
+        mx, my = event.pos
+```
+
+---
+
+### ⚡ 성능 최적화 원칙
+
+#### 반복 계산 방지
+```python
+# 나쁜 예
+for _ in range(1000):
+    dx = math.cos(math.radians(angle))  # 매번 계산
+    x += dx
+
+# 좋은 예
+dx = math.cos(math.radians(angle))  # 한 번만 계산
+dy = math.sin(math.radians(angle))
+for _ in range(1000):
+    x += dx
+    y += dy
+```
+
+#### 불필요한 객체 생성 최소화
+```python
+# 나쁜 예
+for target in targets:
+    if pygame.Rect(target.x, target.y, 10, 10).collidepoint(pos):
+        ...
+
+# 좋은 예
+for target in targets:
+    if near(pos[0], pos[1], target.x, target.y):
+        ...
+```
+
+---
+
+### ✅ 코드 작성 체크리스트
+
+코드 작성 시 다음을 확인하세요:
+
+- [ ] 변수명은 snake_case로 작성했는가?
+- [ ] 상수는 UPPER_CASE로 작성했는가?
+- [ ] 클래스명은 PascalCase로 작성했는가?
+- [ ] 주석과 docstring을 작성했는가?
+- [ ] 들여쓰기는 스페이스 4개인가?
+- [ ] 함수/클래스 간 2줄 띄웠는가?
+- [ ] try-except로 에러 처리를 했는가?
+- [ ] print()로 디버그 메시지를 남겼는가?
+- [ ] JSON 파일은 UTF-8로 저장했는가?
+- [ ] 불필요한 반복 계산을 제거했는가?
+
+---
+
+### 📚 참고 자료
+
+- **PEP 8**: [Python 공식 스타일 가이드](https://peps.python.org/pep-0008/)
+- **pygame 문서**: [pygame.org](https://www.pygame.org/docs/)
+- **프로젝트 최적화**: [`OPTIMIZATION.md`](OPTIMIZATION.md)
+
+---
+
 ## 📄 라이선스
 
 MIT License
