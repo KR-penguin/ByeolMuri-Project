@@ -6,6 +6,11 @@ import traceback
 import json
 
 pygame.init()
+try:
+    pygame.mixer.init()
+except Exception:
+    # 믹서 초기화 실패 시 무시 (사운드 없음)
+    pass
 
 # 색 정의 
 WHITE = (255, 255, 255)
@@ -105,12 +110,38 @@ class MapSelector(Button):
         self.back_button = Button(self.screen, back_rect, "뒤로가기", self.font, 
                                    bg=(50, 50, 50), hover_bg=(80, 80, 80), callback=self.on_back)
 
-        # 상태 (menu / level)
-        self.state = 'menu'
+        # 상태 (main_menu / menu / level)
+        # 기본은 메인 메뉴로 시작하도록 설정
+        self.state = 'main_menu'
         self.current_level = None
         self.level_data = None
         self.level_lines = []
-        
+
+        # 메인 메뉴 UI용 폰트/버튼
+        self.title_font = pygame.font.SysFont('malgungothic', 64)
+        btn_font = pygame.font.SysFont('malgungothic', 32)
+        # store button font for settings close button
+        self.btn_font = btn_font
+        btn_w, btn_h = 360, 72
+        gap = 18
+        cx = (self.WIDTH - btn_w) // 2
+        cy_center = self.HEIGHT // 2
+        self.start_button = Button(self.screen, (cx, cy_center - btn_h - gap//2, btn_w, btn_h), "게임 시작", btn_font, bg=(40,40,120), fg=(255,255,255), hover_bg=(70,70,170), callback=self.on_start)
+        self.settings_button = Button(self.screen, (cx, cy_center + gap//2, btn_w, btn_h), "설정", btn_font, bg=(60,60,60), fg=(255,255,255), hover_bg=(100,100,100), callback=self.on_settings)
+        self.show_settings = False
+        # 설정: 사운드 볼륨(0.0~1.0), 언어(현재는 'ko'만 지원)
+        self.sound_volume = 1.0
+        self.language = 'ko'
+        self.dragging_volume = False
+        # mixer에 초깃값 적용
+        try:
+            pygame.mixer.music.set_volume(self.sound_volume)
+        except Exception:
+            pass
+
+        # 설정 오버레이 내부의 '나가기' 버튼 (rect는 draw()에서 갱신)
+        self.settings_close_button = Button(self.screen, (0, 0, 120, 40), "나가기", self.btn_font, bg=(80,80,80), fg=(255,255,255), hover_bg=(120,120,120), callback=self.on_settings_close)
+
         # 상태
         self.clock = pygame.time.Clock()
         self.running = True
@@ -153,15 +184,28 @@ class MapSelector(Button):
 
     def on_back(self):
         """뒤로가기 동작: 메뉴에서는 창 종료, 레벨에서는 메뉴로 복귀"""
-        if self.state == 'menu':
-            print("뒤로가기(종료) 클릭됨")
-            self.running = False
-        else:
-            print("레벨에서 뒤로가기 -> 메뉴로")
-            self.state = 'menu'
-            self.current_level = None
-            self.level_data = None
-            self.level_lines = []
+        # 뒤로가기 동작: 창을 닫지 않고 항상 메인 메뉴로 복귀
+        print("뒤로가기 -> 메인 메뉴로 이동")
+        self.state = 'main_menu'
+        self.current_level = None
+        self.level_data = None
+        self.level_lines = []
+        self.show_settings = False
+
+    def on_start(self):
+        """게임 시작 버튼: 레벨 선택 화면으로 전환"""
+        print("게임 시작 클릭 -> 레벨 선택으로 이동")
+        self.state = 'menu'
+
+    def on_settings(self):
+        """설정 버튼: 간단 토글(오버레이)"""
+        self.show_settings = not self.show_settings
+        print("설정 버튼 클릭, 표시 상태:", self.show_settings)
+
+    def on_settings_close(self):
+        """설정 오버레이 내부의 나가기 버튼 콜백: 설정 닫기"""
+        self.show_settings = False
+        print("설정 닫기 버튼 클릭 -> 설정 창 닫음")
 
     def launch_game(self):
         """로드된 레벨 데이터를 게임 프로그램으로 전달하여 실행"""
@@ -236,7 +280,76 @@ class MapSelector(Button):
 
     def draw(self):
         self.screen.fill((20, 20, 20))
-        
+        # 메인 메뉴 화면
+        if self.state == 'main_menu':
+            title = "ByeolMuri"
+            try:
+                title_surf = self.title_font.render(title, True, self.WHITE)
+            except Exception:
+                title_surf = self.font.render(title, True, self.WHITE)
+            self.screen.blit(title_surf, ((self.WIDTH - title_surf.get_width())//2, self.HEIGHT//4 - title_surf.get_height()//2))
+
+            # 중앙 버튼
+            self.start_button.draw()
+            self.settings_button.draw()
+
+            # 설정 오버레이
+            if self.show_settings:
+                overlay_w = self.WIDTH - 200
+                overlay_h = self.HEIGHT - 200
+                overlay = pygame.Surface((overlay_w, overlay_h))
+                overlay.fill((30,30,30))
+                overlay.set_alpha(230)
+                rect = overlay.get_rect(center=(self.WIDTH//2, self.HEIGHT//2))
+                pygame.draw.rect(overlay, (200,200,200), overlay.get_rect(), 2)
+                self.screen.blit(overlay, rect.topleft)
+                # 설정 제목
+                try:
+                    s = self.font.render("설정", True, self.WHITE)
+                except Exception:
+                    s = self.font.render("설정", True, self.WHITE)
+                self.screen.blit(s, (rect.x + 20, rect.y + 12))
+
+                # 사운드 슬라이더 (나가기 버튼과 겹치지 않게 아래쪽으로 배치)
+                slider_x = rect.x + 20
+                slider_y = rect.y + 100
+                slider_w = overlay_w - 40
+                slider_h = 18
+                # 바 배경
+                bar_rect = pygame.Rect(slider_x, slider_y, slider_w, slider_h)
+                pygame.draw.rect(self.screen, (80,80,80), bar_rect)
+                # 채워진 부분
+                filled_w = int(self.sound_volume * slider_w)
+                filled_rect = pygame.Rect(slider_x, slider_y, filled_w, slider_h)
+                pygame.draw.rect(self.screen, (180,180,60), filled_rect)
+                # 노브
+                knob_x = slider_x + filled_w
+                knob_y = slider_y + slider_h // 2
+                pygame.draw.circle(self.screen, (220,220,220), (knob_x, knob_y), slider_h)
+                # 라벨
+                vol_label = f"사운드: {int(self.sound_volume*100)}%"
+                vol_surf = self.font.render(vol_label, True, self.WHITE)
+                self.screen.blit(vol_surf, (slider_x, slider_y - 28))
+
+                # 언어 (현재는 한국어만 보여줌)
+                lang_label = "언어: 한국어"
+                lang_surf = self.font.render(lang_label, True, self.WHITE)
+                self.screen.blit(lang_surf, (slider_x, slider_y + 60))
+                # 나가기 버튼 (오버레이 우상단)
+                close_w, close_h = 120, 40
+                close_x = rect.x + overlay_w - close_w - 20
+                close_y = rect.y + 20
+                # 업데이트해서 버튼 위치 적용
+                self.settings_close_button.rect = pygame.Rect(close_x, close_y, close_w, close_h)
+                self.settings_close_button.draw()
+
+            # 메인 화면에서는 뒤로가기 버튼을 숨김 (아래에서 다른 상태에만 그려짐)
+            hint = "ESC: 종료"
+            hint_surf = self.font.render(hint, True, (180,180,180))
+            self.screen.blit(hint_surf, (self.WIDTH - hint_surf.get_width() - self.PADDING, self.HEIGHT - 30))
+            pygame.display.flip()
+            return
+
         if self.state == 'menu':
             title_surf = self.font.render("", True, self.WHITE)
             self.screen.blit(title_surf, (self.PADDING, 56))
@@ -285,13 +398,56 @@ class MapSelector(Button):
                         self.running = False
                     elif event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_ESCAPE:
-                            if self.state == 'level':
-                                self.on_back()
-                            else:
-                                self.running = False
+                            # ESC는 창을 닫지 않고 메인 메뉴로 복귀
+                            self.on_back()
                     
-                    # 버튼 이벤트 처리
-                    self.back_button.handle_event(event)
+                    # 버튼 이벤트 처리 (메인 메뉴일 때는 뒤로가기 이벤트 비활성화)
+                    if self.state != 'main_menu':
+                        self.back_button.handle_event(event)
+                    # 메인 메뉴 버튼 이벤트 처리 (hover 및 클릭)
+                    if self.state == 'main_menu':
+                        self.start_button.handle_event(event)
+                        self.settings_button.handle_event(event)
+                        # 설정 오버레이의 슬라이더 입력 처리
+                        if self.show_settings:
+                            overlay_w = self.WIDTH - 200
+                            overlay_h = self.HEIGHT - 200
+                            rect = pygame.Rect((self.WIDTH - overlay_w)//2, (self.HEIGHT - overlay_h)//2, overlay_w, overlay_h)
+                            slider_x = rect.x + 20
+                            slider_y = rect.y + 100
+                            slider_w = overlay_w - 40
+                            slider_h = 18
+                            bar_rect = pygame.Rect(slider_x, slider_y, slider_w, slider_h)
+
+                            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                                mx, my = event.pos
+                                if bar_rect.collidepoint((mx, my)):
+                                    rel = (mx - slider_x) / slider_w
+                                    self.sound_volume = max(0.0, min(1.0, rel))
+                                    try:
+                                        pygame.mixer.music.set_volume(self.sound_volume)
+                                    except Exception:
+                                        pass
+                                    self.dragging_volume = True
+
+                                # settings 내의 닫기 버튼 이벤트 처리
+                                # settings_close_button은 draw에서 rect가 갱신되므로 존재하면 호출
+                                try:
+                                    self.settings_close_button.handle_event(event)
+                                except Exception:
+                                    pass
+
+                            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                                self.dragging_volume = False
+
+                            elif event.type == pygame.MOUSEMOTION and self.dragging_volume:
+                                mx, my = event.pos
+                                rel = (mx - slider_x) / slider_w
+                                self.sound_volume = max(0.0, min(1.0, rel))
+                                try:
+                                    pygame.mixer.music.set_volume(self.sound_volume)
+                                except Exception:
+                                    pass
                     
                     if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                         mx, my = event.pos

@@ -102,11 +102,23 @@ class MapSelector(Button):
         back_rect = (10, 10, 120, 36)
         self.back_button = Button(self.screen, back_rect, "뒤로가기", self.font, bg=(50,50,50), hover_bg=(80,80,80), callback=self.on_back)
 
-        # 상태 (menu / level)
-        self.state = 'menu'
+        # 상태 (main_menu / menu / level)
+        # 기본 시작 화면을 메인 메뉴로 설정
+        self.state = 'main_menu'
         self.current_level = None
         self.level_data = None
         self.level_lines = []
+        # 메인 메뉴 UI용 폰트/버튼
+        self.title_font = pygame.font.SysFont('malgungothic', 64)
+        btn_font = pygame.font.SysFont('malgungothic', 32)
+        btn_w, btn_h = 360, 72
+        gap = 18
+        cx = (self.WIDTH - btn_w) // 2
+        cy_center = self.HEIGHT // 2
+        self.start_button = Button(self.screen, (cx, cy_center - btn_h - gap//2, btn_w, btn_h), "게임 시작", btn_font, bg=(40,40,120), fg=(255,255,255), hover_bg=(70,70,170), callback=self.on_start)
+        self.settings_button = Button(self.screen, (cx, cy_center + gap//2, btn_w, btn_h), "설정", btn_font, bg=(60,60,60), fg=(255,255,255), hover_bg=(100,100,100), callback=self.on_settings)
+        self.show_settings = False
+
         # 맵 렌더링 관련
         self.map_tiles = None
         self.map_w = 0
@@ -351,6 +363,16 @@ class MapSelector(Button):
             self.level_data = None
             self.level_lines = []
 
+    def on_start(self):
+        # 게임 시작 버튼 동작: 첫 번째 맵 로드
+        print("게임 시작 버튼 클릭됨")
+        self.load_level(self.commands[0])
+
+    def on_settings(self):
+        # 설정 버튼 동작 (현재는 토글만 구현)
+        self.show_settings = not self.show_settings
+        print("설정 버튼 클릭됨, 표시 상태:", self.show_settings)
+
     def draw(self):
         self.screen.fill((20, 20, 20))
         if self.state == 'menu':
@@ -383,6 +405,20 @@ class MapSelector(Button):
                 label_surf = self.font.render(label, True, self.WHITE)
                 label_pos = (rect.x + (rect.w - label_surf.get_width()) // 2, rect.y + rect.h + 4)
                 self.screen.blit(label_surf, label_pos)
+        elif self.state == 'main_menu':
+            # 메인 메뉴 전용 그리기
+            title_surf = self.title_font.render("맵 선택기", True, self.WHITE)
+            self.screen.blit(title_surf, (self.WIDTH // 2 - title_surf.get_width() // 2, 100))
+
+            # 시작 및 설정 버튼 그리기
+            self.start_button.draw()
+            self.settings_button.draw()
+
+            # 설정 표시 여부에 따른 추가 UI 요소
+            if self.show_settings:
+                settings_surf = self.font.render("설정 메뉴 (임시)", True, self.WHITE)
+                self.screen.blit(settings_surf, (self.WIDTH // 2 - settings_surf.get_width() // 2, 300))
+                # 여기서 실제 설정 항목 추가 가능
         else:
             # 레벨 화면: JSON에 tiles가 있으면 맵 렌더, 없으면 텍스트 표시
             title = self.current_level if self.current_level else "Level"
@@ -526,6 +562,13 @@ class MapSelector(Button):
                                     # JSON 파일은 내부 로드로 처리
                                     self.load_level(self.commands[i])
                                     break
+                        elif self.state == 'main_menu':
+                            # 메인 메뉴에서 버튼 클릭 처리
+                            if self.start_button.handle_event(event):
+                                pass
+                            else:
+                                # 추가적인 클릭 동작이 필요하면 여기에 구현
+                                pass
                         else:
                             # 레벨 내부에서 추가 클릭 동작을 원하면 여기에 구현
                             pass
