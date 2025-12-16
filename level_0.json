@@ -1,0 +1,35 @@
+{
+  "map_index": 0,
+  "refract_index": 1.5,
+  "emitters": [
+    {
+      "x": 93,
+      "y": 343,
+      "color": "white",
+      "angle": 0
+    }
+  ],
+  "color_targets": [],
+  "targets": [
+    {
+      "x": 614,
+      "y": 486,
+      "color": "white"
+    }
+  ],
+  "mirrors": [
+    {
+      "x": 349,
+      "y": 342,
+      "angle": 30
+    },
+    {
+      "x": 454,
+      "y": 533,
+      "angle": 25
+    }
+  ],
+  "lenses": [],
+  "prisms": [],
+  "blackholes": []
+}
