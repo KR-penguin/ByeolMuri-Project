@@ -64,7 +64,7 @@ class MapSelector(Button):
         super().__init__(screen, (0, 0, 0, 0), "", pygame.font.SysFont('malgungothic', 20))
         self.WIDTH = width
         self.HEIGHT = height
-        pygame.display.set_caption('맵 선택창')
+        pygame.display.set_caption('PRISMATICA')
 
         # 색상
         self.WHITE = (255, 255, 255)
@@ -282,7 +282,7 @@ class MapSelector(Button):
         self.screen.fill((20, 20, 20))
         # 메인 메뉴 화면
         if self.state == 'main_menu':
-            title = "ByeolMuri"
+            title = "PRISMATICA"
             try:
                 title_surf = self.title_font.render(title, True, self.WHITE)
             except Exception:
