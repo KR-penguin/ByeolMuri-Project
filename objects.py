@@ -25,16 +25,25 @@ COLORS = {
 
 class Button:
     """UI 버튼 클래스"""
-    def __init__(self, x, y, w, h, text):
+    def __init__(self, x, y, w, h, text, show_count=False):
         self.rect = pygame.Rect(x, y, w, h)
         self.text = text
+        self.show_count = show_count
+        self.count = 0
         self.color_idle = (70, 70, 160)
         self.color_hover = (90, 90, 200)
     
     def draw(self, surface, font):
         color = self.color_hover if self.rect.collidepoint(pygame.mouse.get_pos()) else self.color_idle
         pygame.draw.rect(surface, color, self.rect, border_radius=6)
-        txt = font.render(self.text, True, (255, 255, 255))
+        
+        # 텍스트
+        if self.show_count and self.count >= 0:
+            display_text = f"{self.text} ({self.count})"
+        else:
+            display_text = self.text
+        
+        txt = font.render(display_text, True, (255, 255, 255))
         surface.blit(txt, (self.rect.x + 10, self.rect.y + 6))
     
     def is_clicked(self, pos):
