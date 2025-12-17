@@ -60,15 +60,13 @@ def play_bgm_for_map(map_index):
 
     path = os.path.join(BGM_DIR, BGM_FILE)
     if not os.path.isfile(path):
-        # 파일이 없으면 기본 BGM으로 자동 생성
-        generate_default_bgm(path)
-        if not os.path.isfile(path):
-            try:
-                pygame.mixer.music.stop()
-            except Exception:
-                pass
-            print(f"BGM 파일 없음: {path} -- 생성 시도 후에도 파일이 없습니다.")
-            return
+        # BGM 파일이 없으면 재생을 시도하지 않고 조용히 종료
+        try:
+            pygame.mixer.music.stop()
+        except Exception:
+            pass
+        print(f"BGM 파일 없음: {path} -- 재생하지 않습니다.")
+        return
 
     try:
         pygame.mixer.music.load(path)
