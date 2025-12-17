@@ -1,35 +1,23 @@
 {
   "map_index": 0,
-  "refract_index": 1.5,
   "emitters": [
     {
-      "x": 93,
-      "y": 343,
+      "x": 91,
+      "y": 341,
       "color": "white",
       "angle": 0
     }
   ],
-  "color_targets": [],
   "targets": [
     {
-      "x": 614,
-      "y": 486,
+      "x": 1075,
+      "y": 587,
       "color": "white"
     }
   ],
-  "mirrors": [
-    {
-      "x": 349,
-      "y": 342,
-      "angle": 30
-    },
-    {
-      "x": 454,
-      "y": 533,
-      "angle": 25
-    }
-  ],
+  "mirrors": [],
   "lenses": [],
-  "prisms": [],
+  "portals_a": [],
+  "portals_b": [],
   "blackholes": []
 }
