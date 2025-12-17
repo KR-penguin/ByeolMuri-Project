@@ -1,0 +1,25 @@
+{
+  "map_index": 1,
+  "emitters": [
+    {
+      "x":501,
+      "y": 423,
+      "color": "white",
+      "angle": 0
+    }
+  ],
+  "targets": [
+    {
+      "x": 741,
+      "y": 669,
+      "color": "white"
+    }
+  ],
+  "mirrors": [],
+  "lenses": [],
+  "portals_a": [],
+  "portals_b": [],
+  "blackholes": [
+    
+  ]
+}
