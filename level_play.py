@@ -13,6 +13,42 @@ from utils import near, angle_wrap, vec_from_angle, advance, refract_angle, N_AI
 WIDTH, HEIGHT = 1280, 720
 FPS = 60
 
+# BGM 설정
+BGM_DIR = os.path.join(os.path.dirname(__file__), "assets", "bgm")
+BGM_FILE = '경쾌한 BGM.mp3'
+
+# 오디오 초기화 함수
+def init_audio():
+    try:
+        if not pygame.mixer.get_init():
+            pygame.mixer.init()
+            print("🔊 오디오 장치 초기화됨")
+    except Exception as e:
+        print(f"❌ 오디오 초기화 에러: {e}")
+
+# BGM 재생 함수
+def play_bgm_for_map(map_index):
+    # 경로 생성
+    bgm_path = os.path.join(os.path.dirname(__file__), 'assets', 'bgm', '경쾌한 BGM.mp3')
+    
+    # 1. 경로 확인 (디버깅용)
+    print(f"🔍 BGM 경로: {bgm_path}")
+
+    # 2. 파일이 진짜 있는지 확인
+    if not os.path.exists(bgm_path):
+        print("❌ 오류: BGM 파일이 해당 경로에 없습니다.")
+        return
+
+    # 3. 재생 시도
+    try:
+        pygame.mixer.music.load(bgm_path)
+        pygame.mixer.music.set_volume(0.5) # 볼륨 50%
+        pygame.mixer.music.play(-1)        # -1은 무한 반복
+        print("♬ BGM 재생 성공!")
+    except Exception as e:
+        print(f"❌ 재생 실패 (에러 내용): {e}")
+
+
 # 그리드 설정
 GRID_SIZE = 41  # 가로 30칸 기준 (1230 / 30 = 41)
 GRID_OFFSET_X = 50
@@ -46,7 +82,6 @@ def draw_grid(surface):
         pygame.draw.line(surface, grid_color, (GRID_OFFSET_X, y), (WIDTH, y), 1)
         y += GRID_SIZE
 
-# 👇 여기에 추가!
 def draw_info_box(surface, text, color=(255, 220, 0)):
     """안내 글상자 그리기"""
     info_text = FONT_BIG.render(text, True, color)
@@ -56,7 +91,6 @@ def draw_info_box(surface, text, color=(255, 220, 0)):
     box_x = WIDTH - box_width - MARGIN
     box_y = MARGIN
 
-    
     # 반투명 배경
     box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
     pygame.draw.rect(box_surface, (50, 50, 50, 220), (0, 0, box_width, box_height), border_radius=10)
@@ -87,7 +121,6 @@ btn_stop = Button(160, 20, 120, 40, "중단")
 btn_clear = Button(300, 20, 120, 40, "초기화")
 btn_back = Button(440, 20, 120, 40, "메뉴로")
 
-# 도구 버튼 (2번째 줄)
 # 도구 버튼 (2번째 줄)
 btn_mirror = Button(20, 70, 120, 40, "거울", show_count=True)
 btn_eraser = Button(160, 70, 100, 40, "지우개")
@@ -123,12 +156,11 @@ def get_remaining_count(item_type):
         return limits["lens"] - used
     elif item_type == "portal_a":
         used_a = sum(1 for obj in player_objects
-                    if isinstance(obj, Portal) and obj.portal_type == 'A')
+                     if isinstance(obj, Portal) and obj.portal_type == 'A')
         return limits["portal"] - used_a
-
     elif item_type == "portal_b":
         used_b = sum(1 for obj in player_objects
-                    if isinstance(obj, Portal) and obj.portal_type == 'B')
+                     if isinstance(obj, Portal) and obj.portal_type == 'B')
         return limits["portal"] - used_b
 
     return 0
@@ -177,13 +209,14 @@ def load_level(filename):
         for b in data.get("blackholes", []):
             gx, gy = snap_to_grid(b["x"], b["y"])
             blackholes.append(Blackhole(gx, gy))
-       
+        
+        # --- BGM 재생 호출 추가 --- ### 👈 여기가 핵심입니다!
+        map_idx = data.get("map_index", 0)
+        play_bgm_for_map(map_idx)
+
         print(f"레벨 로드 완료: {filename}")
         print(f"발사장치: {len(emitters)}개, 목표지점: {len(targets)}개")
         print(f"블랙홀: {len(blackholes)}개")
-        
-        for i, bh in enumerate(blackholes):
-            print(f"  블랙홀 {i}: ({bh.x}, {bh.y})")
             
     except Exception as e:
         print(f"레벨 로드 실패: {e}")
@@ -318,6 +351,9 @@ def check_game_complete():
 def main():
     global object_mode, game_started, player_objects, level_file
     
+    # --- 오디오 초기화 호출 추가 --- ### 👈 여기도 핵심입니다!
+    init_audio()
+
     # 레벨 파일 로드
     if len(sys.argv) > 1:
         level_file = sys.argv[1]
@@ -520,10 +556,15 @@ def main():
 
         pygame.display.flip()
         clock.tick(FPS)
+    
+    # 종료 시 정리
+    try:
+        pygame.mixer.music.stop()
+        pygame.mixer.quit()
+    except:
+        pass
 
     pygame.quit()
 
 if __name__ == "__main__":
     main()
-
-
