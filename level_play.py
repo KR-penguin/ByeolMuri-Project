@@ -106,7 +106,7 @@ LEVEL_LIMITS = {
     "level_3.json": {"mirror": 1, "lens": 2, "portal": 0},
     "level_4.json": {"mirror": 0, "lens": 1, "portal": 1},
     "level_5.json": {"mirror": 0, "lens": 3, "portal": 1},
-    "level_6.json": {"mirror": 2, "lens": 2, "portal": 1},
+    "level_6.json": {"mirror": 1, "lens": 2, "portal": 1},
     "level_7.json": {"mirror": 3, "lens": 1, "portal": 1},
 }
 
@@ -461,7 +461,7 @@ def main():
             "level_3.json": "🔸 거울 1개, 렌즈 2개 사용 가능",
             "level_4.json": "🔸 거울 0개, 렌즈 1개, 포탈 1쌍 사용 가능",
             "level_5.json": "🔸 렌즈 3개, 포탈 1쌍 사용 가능",
-            "level_6.json": "🔸 거울 2개, 렌즈 2개, 포탈 1쌍 사용 가능",
+            "level_6.json": "🔸 거울 1개, 렌즈 2개, 포탈 1쌍 사용 가능",
             "level_7.json": "🔸 거울 3개, 렌즈 1개, 포탈 1쌍 사용 가능",
         }
 
@@ -525,4 +525,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
