@@ -3,8 +3,6 @@ import math
 import json
 import sys
 import os
-import wave
-import struct
 
 # 모듈 임포트 (objects.py, utils.py 필요)
 from objects import (Button, Emitter, Target, Mirror, Lens, Blackhole, Portal,
@@ -27,55 +25,6 @@ clock = pygame.time.Clock()
 FONT = pygame.font.SysFont("Malgun Gothic", 20)
 FONT_BIG = pygame.font.SysFont("Malgun Gothic", 24)
 
-# BGM 설정
-BGM_DIR = os.path.join(os.path.dirname(__file__), "assets", "bgm")
-# 단일 BGM 파일명 (한글 파일명도 지원) - WAV로 자동생성
-BGM_FILE = '경쾌한 BGM.mp3'  # 레벨 입장 시 단일 BGM을 반복 재생
-
-
-# 오디오 초기화 및 재생 함수
-def init_audio():
-    """사운드 시스템 초기화."""
-    try:
-        if not pygame.mixer.get_init():
-            pygame.mixer.init()
-        print("🔊 오디오 시스템 초기화 완료")
-    except Exception as e:
-        print(f"오디오 초기화 실패: {e}")
-
-
-def play_bgm_for_map(map_index):
-    """맵을 로드할 때 단일 BGM을 무한 반복 재생.
-    map_index가 None이면 BGM을 중지한다."""
-    # 맵 인덱스가 없더라도 기본 BGM 파일이 있으면 재생하도록 변경
-    if map_index is None:
-        print("BGM: 맵 정보 없음, 기본 BGM 재생 시도")
-
-    if not pygame.mixer.get_init():
-        try:
-            pygame.mixer.init()
-        except Exception as e:
-            print(f"오디오 초기화 실패: {e}")
-            return
-
-    path = os.path.join(BGM_DIR, BGM_FILE)
-    if not os.path.isfile(path):
-        # BGM 파일이 없으면 재생을 시도하지 않고 조용히 종료
-        try:
-            pygame.mixer.music.stop()
-        except Exception:
-            pass
-        print(f"BGM 파일 없음: {path} -- 재생하지 않습니다.")
-        return
-
-    try:
-        pygame.mixer.music.load(path)
-        pygame.mixer.music.set_volume(0.6)
-        pygame.mixer.music.play(-1)  # 무한 반복
-        print(f"♬ BGM 재생: {BGM_FILE} (맵 인덱스: {map_index})")
-    except Exception as e:
-        print(f"BGM 재생 실패: {e}")
-
 # --- 그리드 함수 ---
 def snap_to_grid(x, y):
     """마우스 좌표를 가장 가까운 그리드 중심으로 스냅"""
@@ -97,14 +46,40 @@ def draw_grid(surface):
         pygame.draw.line(surface, grid_color, (GRID_OFFSET_X, y), (WIDTH, y), 1)
         y += GRID_SIZE
 
+# 👇 여기에 추가!
+def draw_info_box(surface, text, color=(255, 220, 0)):
+    """안내 글상자 그리기"""
+    info_text = FONT_BIG.render(text, True, color)
+    box_width = info_text.get_width() + 40
+    box_height = 50
+    MARGIN = 20  # 화면 모서리에서 떨어진 거리
+    box_x = WIDTH - box_width - MARGIN
+    box_y = MARGIN
+
+    
+    # 반투명 배경
+    box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+    pygame.draw.rect(box_surface, (50, 50, 50, 220), (0, 0, box_width, box_height), border_radius=10)
+    pygame.draw.rect(box_surface, color, (0, 0, box_width, box_height), 3, border_radius=10)
+    surface.blit(box_surface, (box_x, box_y))
+    
+    # 텍스트
+    text_x = box_x + (box_width - info_text.get_width()) // 2
+    text_y = box_y + (box_height - info_text.get_height()) // 2
+    surface.blit(info_text, (text_x, text_y))
+
 # --- 오브젝트 리스트 ---
 emitters, targets, mirrors, lenses, blackholes = [], [], [], [], []
 portals_a, portals_b = [], []
 player_objects = []  # 플레이어가 배치한 오브젝트
 
 # --- 모드/상태 ---
-object_mode = None  # 'mirror'|'lens'|'blackhole'|'portal_a'|'portal_b'|'eraser'
+object_mode = None  # 'mirror'|'lens'|'portal_a'|'portal_b'|'eraser'
 game_started = False
+level_file = "level_0.json"  # 현재 레벨 파일
+
+portal_a_used = 0
+portal_b_used = 0
 
 # --- 버튼들 ---
 btn_start = Button(20, 20, 120, 40, "게임 시작")
@@ -113,15 +88,50 @@ btn_clear = Button(300, 20, 120, 40, "초기화")
 btn_back = Button(440, 20, 120, 40, "메뉴로")
 
 # 도구 버튼 (2번째 줄)
-btn_mirror = Button(20, 70, 100, 40, "거울")
-btn_lens = Button(140, 70, 100, 40, "렌즈")
-btn_blackhole = Button(260, 70, 100, 40, "블랙홀")
-btn_portal_a = Button(380, 70, 100, 40, "포탈 A")
-btn_portal_b = Button(500, 70, 100, 40, "포탈 B")
-btn_eraser = Button(620, 70, 100, 40, "지우개")
+# 도구 버튼 (2번째 줄)
+btn_mirror = Button(20, 70, 120, 40, "거울", show_count=True)
+btn_eraser = Button(160, 70, 100, 40, "지우개")
+btn_lens = Button(280, 70, 120, 40, "렌즈", show_count=True)
+btn_portal_a = Button(420, 70, 120, 40, "포탈 A", show_count=True)
+btn_portal_b = Button(560, 70, 120, 40, "포탈 B", show_count=True)
 
 buttons = [btn_start, btn_stop, btn_clear, btn_back,
-           btn_mirror, btn_lens, btn_blackhole, btn_portal_a, btn_portal_b, btn_eraser]
+           btn_mirror, btn_eraser, btn_lens, btn_portal_a, btn_portal_b]
+
+# --- 레벨별 제한 설정 ---
+LEVEL_LIMITS = {
+    "level_0.json": {"mirror": 2, "lens": 0, "portal": 0},
+    "level_1.json": {"mirror": 0, "lens": 2, "portal": 0},
+    "level_2.json": {"mirror": 1, "lens": 1, "portal": 0},
+    "level_3.json": {"mirror": 1, "lens": 2, "portal": 0},
+    "level_4.json": {"mirror": 0, "lens": 1, "portal": 1},
+    "level_5.json": {"mirror": 0, "lens": 3, "portal": 1},
+    "level_6.json": {"mirror": 2, "lens": 2, "portal": 1},
+    "level_7.json": {"mirror": 3, "lens": 1, "portal": 1},
+}
+
+def get_remaining_count(item_type):
+    """남은 아이템 개수 반환"""
+    level_name = os.path.basename(level_file)
+    limits = LEVEL_LIMITS.get(level_name, {"mirror": 99, "lens": 99, "portal": 99})
+    
+    if item_type == "mirror":
+        used = sum(1 for obj in player_objects if isinstance(obj, Mirror))
+        return limits["mirror"] - used
+    elif item_type == "lens":
+        used = sum(1 for obj in player_objects if isinstance(obj, Lens))
+        return limits["lens"] - used
+    elif item_type == "portal_a":
+        used_a = sum(1 for obj in player_objects
+                    if isinstance(obj, Portal) and obj.portal_type == 'A')
+        return limits["portal"] - used_a
+
+    elif item_type == "portal_b":
+        used_b = sum(1 for obj in player_objects
+                    if isinstance(obj, Portal) and obj.portal_type == 'B')
+        return limits["portal"] - used_b
+
+    return 0
 
 # --- 레벨 로드 ---
 def load_level(filename):
@@ -143,30 +153,49 @@ def load_level(filename):
 
         # 발사장치와 목표지점만 로드 (플레이어가 배치할 수 없음)
         for e in data.get("emitters", []):
-            emitters.append(Emitter(e["x"], e["y"], e.get("color","white"), e.get("angle",0)))
+            gx, gy = snap_to_grid(e["x"], e["y"])
+            emitters.append(Emitter(gx, gy, e.get("color","white"), e.get("angle",0)))
         for t in data.get("targets", []):
-            targets.append(Target(t["x"], t["y"], t.get("color","white")))
+            gx, gy = snap_to_grid(t["x"], t["y"])
+            targets.append(Target(gx, gy, t.get("color","white")))
+            
+        # 거울, 렌즈 로드
+        for m in data.get("mirrors", []):
+            gx, gy = snap_to_grid(m["x"], m["y"])
+            mirrors.append(Mirror(gx, gy, m.get("angle",0)))
+        for l in data.get("lenses", []):
+            gx, gy = snap_to_grid(l["x"], l["y"])
+            lenses.append(Lens(gx, gy, l.get("angle",0)))
+        for p in data.get("portals_a", []):
+            gx, gy = snap_to_grid(p["x"], p["y"])
+            portals_a.append(Portal(gx, gy, 'A'))
+        for p in data.get("portals_b", []):
+            gx, gy = snap_to_grid(p["x"], p["y"])
+            portals_b.append(Portal(gx, gy, 'B'))
         
-        # 맵 인덱스 기반으로 BGM 재생 (없으면 중지)
-        map_idx = data.get("map_index")
-        play_bgm_for_map(map_idx)
-        
-        # 나머지는 힌트로만 표시 (선택사항)
-#        for m in data.get("mirrors", []):
-#            mirrors.append(Mirror(m["x"], m["y"], m.get("angle",0)))
-#        for l in data.get("lenses", []):
-#            lenses.append(Lens(l["x"], l["y"], l.get("angle",0)))
-#        for p in data.get("portals_a", []):
-#            portals_a.append(Portal(p["x"], p["y"], 'A'))
-#        for p in data.get("portals_b", []):
-#            portals_b.append(Portal(p["x"], p["y"], 'B'))
-#        for b in data.get("blackholes", []):
-#            blackholes.append(Blackhole(b["x"], b["y"]))
-        
+        # 블랙홀 로드
+        for b in data.get("blackholes", []):
+            gx, gy = snap_to_grid(b["x"], b["y"])
+            blackholes.append(Blackhole(gx, gy))
+       
         print(f"레벨 로드 완료: {filename}")
         print(f"발사장치: {len(emitters)}개, 목표지점: {len(targets)}개")
+        print(f"블랙홀: {len(blackholes)}개")
+        
+        for i, bh in enumerate(blackholes):
+            print(f"  블랙홀 {i}: ({bh.x}, {bh.y})")
+            
     except Exception as e:
         print(f"레벨 로드 실패: {e}")
+
+def get_level_info():
+    """레벨별 안내 메시지 반환"""
+    if "level_0.json" in level_file:
+        return "🔸 레벨 0: 거울 2개만 사용 가능"
+    elif "level_1.json" in level_file:
+        return "🔸 레벨 1: 렌즈 2개만 사용 가능"
+    else:
+        return ""
 
 # --- 빛 시뮬레이션 ---
 def simulate_light(surface):
@@ -287,7 +316,7 @@ def check_game_complete():
 
 # --- 메인 ---
 def main():
-    global object_mode, game_started, player_objects
+    global object_mode, game_started, player_objects, level_file
     
     # 레벨 파일 로드
     if len(sys.argv) > 1:
@@ -295,17 +324,13 @@ def main():
     else:
         level_file = "level_0.json"
     print(f"📂 레벨 파일 로드 시도: {level_file}")
-
-    # 오디오 초기화
-    init_audio()
-
     load_level(level_file)
     
     print(f"✅ 발사장치: {len(emitters)}개")
     print(f"✅ 목표지점: {len(targets)}개")
     print(f"✅ 거울: {len(mirrors)}개")
     print(f"✅ 렌즈: {len(lenses)}개")
-
+    
     if len(emitters) > 0:
         print(f"   발사장치 위치: ({emitters[0].x}, {emitters[0].y})")
     if len(targets) > 0:
@@ -339,20 +364,26 @@ def main():
                     continue
 
                 if btn_mirror.is_clicked((mx, my)):
-                    object_mode = 'mirror'
+                    if get_remaining_count("mirror") > 0:
+                        object_mode = 'mirror'
                     continue
+                    
                 if btn_lens.is_clicked((mx, my)):
-                    object_mode = 'lens'
+                    if get_remaining_count("lens") > 0:
+                        object_mode = 'lens'
                     continue
-                if btn_blackhole.is_clicked((mx, my)):
-                    object_mode = 'blackhole'
-                    continue
+                    
                 if btn_portal_a.is_clicked((mx, my)):
-                    object_mode = 'portal_a'
+                    if get_remaining_count("portal_a") > 0:
+                        object_mode = 'portal_a'
                     continue
+
                 if btn_portal_b.is_clicked((mx, my)):
-                    object_mode = 'portal_b'
+                    if get_remaining_count("portal_b") > 0:
+                        object_mode = 'portal_b'
                     continue
+
+
                 if btn_eraser.is_clicked((mx, my)):
                     object_mode = 'eraser'
                     continue
@@ -360,26 +391,42 @@ def main():
                 # 오브젝트 배치/삭제
                 gx, gy = snap_to_grid(mx, my)
                 
+                # 격자 범위 체크 (GRID_OFFSET_Y=300 ~ HEIGHT=720)
+                if gy < GRID_OFFSET_Y or gy >= HEIGHT or gx < GRID_OFFSET_X or gx >= WIDTH:
+                    continue  # 격자 바깥이면 무시
+                
                 if object_mode == 'mirror':
-                    obj = Mirror(gx, gy, 45)
-                    player_objects.append(obj)
-                    last_selected = obj
+                    if get_remaining_count("mirror") > 0:
+                        obj = Mirror(gx, gy, 45)
+                        player_objects.append(obj)
+                        last_selected = obj
+                    else:
+                        print("거울을 더 이상 배치할 수 없습니다!")
+                        
                 elif object_mode == 'lens':
-                    obj = Lens(gx, gy, 0)
-                    player_objects.append(obj)
-                    last_selected = obj
-                elif object_mode == 'blackhole':
-                    obj = Blackhole(gx, gy)
-                    player_objects.append(obj)
-                    last_selected = obj
+                    if get_remaining_count("lens") > 0:
+                        obj = Lens(gx, gy, 0)
+                        player_objects.append(obj)
+                        last_selected = obj
+                    else:
+                        print("렌즈를 더 이상 배치할 수 없습니다!")
+                        
                 elif object_mode == 'portal_a':
-                    obj = Portal(gx, gy, 'A')
-                    player_objects.append(obj)
-                    last_selected = obj
+                    if get_remaining_count("portal_a") > 0:
+                        obj = Portal(gx, gy, 'A')
+                        player_objects.append(obj)
+                        last_selected = obj
+                    else:
+                        print("포탈 A를 더 이상 배치할 수 없습니다!")
+                        
                 elif object_mode == 'portal_b':
-                    obj = Portal(gx, gy, 'B')
-                    player_objects.append(obj)
-                    last_selected = obj
+                    if get_remaining_count("portal_b") > 0:
+                        obj = Portal(gx, gy, 'B')
+                        player_objects.append(obj)
+                        last_selected = obj
+                    else:
+                        print("포탈 B를 더 이상 배치할 수 없습니다!")
+
                 elif object_mode == 'eraser':
                     for obj in player_objects[:]:
                         if hasattr(obj, 'x') and hasattr(obj, 'y') and near(mx, my, obj.x, obj.y):
@@ -398,10 +445,40 @@ def main():
         # 그리드 그리기
         draw_grid(screen)
 
-        # 버튼 그리기
-        for b in buttons:
-            b.draw(screen, FONT)
+     # 버튼에 남은 개수 업데이트
+        btn_mirror.count = get_remaining_count("mirror")
+        btn_lens.count = get_remaining_count("lens")
+        btn_portal_a.count = get_remaining_count("portal_a")
+        btn_portal_b.count = get_remaining_count("portal_b")
 
+        # 버튼 그리기
+        # 레벨별 안내 글상자
+        level_name = os.path.basename(level_file)
+        info_messages = {
+            "level_0.json": "🔸 거울 2개만 사용 가능",
+            "level_1.json": "🔸 렌즈 2개만 사용 가능",
+            "level_2.json": "🔸 거울 1개, 렌즈 1개 사용 가능",
+            "level_3.json": "🔸 거울 1개, 렌즈 2개 사용 가능",
+            "level_4.json": "🔸 거울 0개, 렌즈 1개, 포탈 1쌍 사용 가능",
+            "level_5.json": "🔸 렌즈 3개, 포탈 1쌍 사용 가능",
+            "level_6.json": "🔸 거울 2개, 렌즈 2개, 포탈 1쌍 사용 가능",
+            "level_7.json": "🔸 거울 3개, 렌즈 1개, 포탈 1쌍 사용 가능",
+        }
+
+        if level_name in info_messages:
+            draw_info_box(screen, info_messages[level_name])
+        
+        limits = LEVEL_LIMITS.get(level_name, {})
+
+        for b in buttons:
+            # 레벨별 버튼 숨기기
+            if b == btn_mirror and limits.get("mirror", 0) == 0:
+                continue
+            if b == btn_lens and limits.get("lens", 0) == 0:
+                continue
+            if (b == btn_portal_a or b == btn_portal_b) and limits.get("portal", 0) == 0:
+                continue
+            b.draw(screen, FONT)
         # 상태 표시
         mode_text = f"선택 도구: {object_mode if object_mode else '없음'}  |  상태: {'실행중' if game_started else '대기'}"
         screen.blit(FONT.render(mode_text, True, (230,230,230)), (20, 130))
@@ -411,27 +488,19 @@ def main():
             "좌클릭: 도구 배치 | 마우스 휠: 회전 | 지우개: 도구 삭제",
             "목표: 발사장치에서 나온 빛이 목표지점에 도달하도록 도구 배치"
         ]
+        
         for i, line in enumerate(info):
             screen.blit(FONT.render(line, True, (180,180,180)), (20, 160 + i*22))
-
-        # 고정 오브젝트 그리기 (반투명)
-#        for m in mirrors:
-#            m.draw(screen)
-#            # 힌트 표시 (반투명)
-#            s = pygame.Surface((RADIUS*4, RADIUS*4), pygame.SRCALPHA)
-#            pygame.draw.circle(s, (255, 255, 0, 80), (RADIUS*2, RADIUS*2), RADIUS*2, 2)
-#            screen.blit(s, (m.x - RADIUS*2, m.y - RADIUS*2))
-#        for l in lenses:
-#            l.draw(screen)
-#            s = pygame.Surface((RADIUS*4, RADIUS*4), pygame.SRCALPHA)
-#            pygame.draw.circle(s, (255, 255, 0, 80), (RADIUS*2, RADIUS*2), RADIUS*2, 2)
-#            screen.blit(s, (l.x - RADIUS*2, l.y - RADIUS*2))
 
         # 발사장치와 목표지점 (고정)
         for e in emitters:
             e.draw(screen)
         for t in targets:
             t.draw(screen)
+
+        # 블랙홀 그리기
+        for bh in blackholes:
+            bh.draw(screen)
 
         # 플레이어가 배치한 오브젝트
         for obj in player_objects:
@@ -451,13 +520,6 @@ def main():
 
         pygame.display.flip()
         clock.tick(FPS)
-
-    # 종료 시 BGM 정지
-    try:
-        pygame.mixer.music.stop()
-        pygame.mixer.quit()
-    except Exception:
-        pass
 
     pygame.quit()
 
